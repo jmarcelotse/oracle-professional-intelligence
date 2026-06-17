@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oracle-api-config
+  namespace: oracle-ai
+data:
+  DATABASE_HOST: oracle-postgres-postgresql.oracle-data.svc.cluster.local
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: oracle_professional_intelligence
+  DATABASE_USER: oracle
+  DATABASE_PASSWORD: oracle
+  LITELLM_BASE_URL: http://litellm.oracle-ai.svc.cluster.local:4000
+  ORACLE_LLM_MODEL: ollama/qwen2.5-coder:1.5b
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-api
+  namespace: oracle-ai
+  labels:
+    app: oracle-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-api
+  template:
+    metadata:
+      labels:
+        app: oracle-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: oracle-api
+          image: oracle-api:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: oracle-api-config
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-api
+  namespace: oracle-ai
+spec:
+  selector:
+    app: oracle-api
+  ports:
+    - port: 8000
+      targetPort: 8000

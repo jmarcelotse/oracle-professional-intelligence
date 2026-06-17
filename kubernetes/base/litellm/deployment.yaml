@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  namespace: oracle-ai
+  labels:
+    app: litellm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      containers:
+        - name: litellm
+          image: ghcr.io/berriai/litellm:main-latest
+          # Modelo pequeno (1.5b): o host tem ~15Gi de RAM compartilhada e um
+          # modelo 7B não cabe. Troque por um modelo maior se houver RAM/GPU.
+          args:
+            - "--model"
+            - "ollama/qwen2.5-coder:1.5b"
+            - "--api_base"
+            - "http://ollama.oracle-ai.svc.cluster.local:11434"
+          ports:
+            - containerPort: 4000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm
+  namespace: oracle-ai
+spec:
+  selector:
+    app: litellm
+  ports:
+    - port: 4000
+      targetPort: 4000

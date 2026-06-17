@@ -1,0 +1,15 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.DS_Store
+data/private/
+data/exports/
+obsidian/private/
+*.sqlite
+*.db
+node_modules/
+dist/
+build/
