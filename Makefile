@@ -1,7 +1,7 @@
 KIND_CLUSTER ?= nxt-cluster-staging
 
 .PHONY: help namespaces data migrate ai apps automation observability security \
-        bootstrap build-api build-dashboard deploy-api deploy-dashboard \
+        ingress bootstrap build-api build-dashboard deploy-api deploy-dashboard \
         port-api port-dashboard port-openwebui port-n8n port-postgres \
         port-grafana port-prometheus status
 
@@ -58,6 +58,11 @@ observability: ## Instala Prometheus + Grafana enxutos (oracle-observability)
 
 security: ## Instala Kyverno (Audit) + Trivy Operator (oracle-security)
 	bash scripts/install-security.sh
+
+ingress: ## Cria os Ingresses (*.oracle.local via ingress-nginx)
+	kubectl apply -f kubernetes/base/ingress/ingress.yaml
+	@echo "Adicione ao /etc/hosts:"
+	@echo "  172.18.255.200 dashboard.oracle.local api.oracle.local chat.oracle.local grafana.oracle.local n8n.oracle.local"
 
 port-n8n: ## Expõe o n8n em localhost:5678
 	kubectl -n oracle-automation port-forward svc/n8n 5678:5678

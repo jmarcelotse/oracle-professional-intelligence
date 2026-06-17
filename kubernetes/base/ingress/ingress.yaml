@@ -1,0 +1,98 @@
+# Ingresses do Oracle (ingress-nginx + metallb já existentes no cluster).
+# Mesmo padrão dos outros projetos: hostnames *.oracle.local -> 172.18.255.200.
+# Adicione ao /etc/hosts:
+#   172.18.255.200 dashboard.oracle.local api.oracle.local chat.oracle.local grafana.oracle.local n8n.oracle.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oracle-dashboard
+  namespace: oracle-ai
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: dashboard.oracle.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oracle-dashboard
+                port:
+                  number: 8501
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oracle-api
+  namespace: oracle-ai
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.oracle.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oracle-api
+                port:
+                  number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oracle-openwebui
+  namespace: oracle-ai
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: chat.oracle.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: open-webui
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oracle-grafana
+  namespace: oracle-observability
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: grafana.oracle.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oracle-n8n
+  namespace: oracle-automation
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: n8n.oracle.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
