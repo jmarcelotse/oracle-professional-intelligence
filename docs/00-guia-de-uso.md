@@ -87,52 +87,56 @@ kubectl exec -n oracle-data oracle-postgres-postgresql-0 -- \
 
 ## 2. Recruiter Intelligence — networking com recrutadores
 
-### 2.1 Gerar mensagem para recrutador
+**Tudo pelo Dashboard, aba 🤝 Recrutadores** (sem curl):
+
+- **Gerar mensagem de outreach**: preencha Nome / Empresa / Cargo / Idioma →
+  *Gerar mensagem*.
+- **Cadastrar recrutador**: formulário Nome / Empresa / Função / País → *Salvar*.
+- **Listar**: tabela com todos os recrutadores cadastrados.
+
+Equivalentes via API (para automação), se precisar:
 
 ```bash
-curl -X POST http://api.oracle.local/generate/outreach \
-  -H 'Content-Type: application/json' \
+curl -X POST http://api.oracle.local/generate/outreach -H 'Content-Type: application/json' \
   -d '{"recruiter_name":"Maria","company":"Datadog","target_role":"Senior SRE","language":"en"}'
+curl -X POST http://api.oracle.local/recruiters -H 'Content-Type: application/json' \
+  -d '{"name":"Maria","company":"Datadog","role":"Tech Recruiter","country":"US"}'
 ```
 
-### 2.2 Organizar recrutadores
-
-```bash
-# cadastrar
-curl -X POST http://api.oracle.local/recruiters \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Maria","company":"Datadog","role":"Tech Recruiter","country":"US","status":"new"}'
-
-# listar
-curl http://api.oracle.local/recruiters
-```
-
-Campos úteis: `status` (new/contacted/interview/...) e `next_follow_up` (data)
-para acompanhar relacionamento.
+Campos úteis: `status` (new/contacted/interview/...) e `next_follow_up` (data).
 
 ---
 
 ## 3. Career Intelligence — vagas e estratégia
 
-### 3.1 Cadastrar e acompanhar vagas
+### 3.1 Vagas chegando automaticamente (LinkedIn por e-mail)
+
+A forma de o Oracle **trazer vagas pra você** sem scraping: você cria alertas de
+vaga no LinkedIn (recurso oficial), o LinkedIn manda por e-mail, e o n8n ingere
+na tabela `jobs`. Aparecem sozinhas no Dashboard.
+
+➡️ Setup completo em [`06-ingestao-linkedin-email.md`](06-ingestao-linkedin-email.md).
+
+### 3.2 Cadastrar/acompanhar vagas manualmente
+
+**Pelo Dashboard, aba 💼 Vagas**: formulário (Título / Empresa / Local / Stack /
+URL / Remota) → *Salvar*; e a tabela com todas as vagas.
+
+Equivalente via API:
 
 ```bash
-# cadastrar uma vaga
-curl -X POST http://api.oracle.local/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Platform Engineer","company":"Acme","location":"Remote EU","remote":true,"stack":"Kubernetes, AWS, Terraform","job_url":"https://...","status":"new"}'
-
-# listar (ou filtrar por status)
+curl -X POST http://api.oracle.local/jobs -H 'Content-Type: application/json' \
+  -d '{"title":"Platform Engineer","company":"Acme","remote":true,"stack":"Kubernetes, AWS","status":"new"}'
 curl "http://api.oracle.local/jobs?status=new"
 ```
 
-### 3.2 Compatibilidade vaga × perfil (job match)
+### 3.3 Compatibilidade vaga × perfil (job match)
 
 Hoje, via **Chat** com `claude-sonnet`: cole a descrição da vaga + seu currículo
 e use a instrução de [`skills/job-matcher/SKILL.md`](../skills/job-matcher/SKILL.md).
 A skill retorna match score, requisitos atendidos, gaps e recomendações.
 
-### 3.3 Estratégia de carreira
+### 3.4 Estratégia de carreira
 
 No Chat com `claude-opus`, use [`skills/career-strategist/SKILL.md`](../skills/career-strategist/SKILL.md)
 para plano de carreira, certificações e trilhas de estudo.
@@ -189,8 +193,10 @@ Abra http://n8n.oracle.local e importe os fluxos de
 [`workflows/n8n/`](../workflows/n8n/).
 
 - **daily-linkedin-plan** (incluído): todo dia gera um rascunho de post via API.
-- Sugeridos: relatório semanal de carreira, monitor de vagas, follow-up de
-  recrutadores, ingestão do Obsidian.
+- **linkedin-jobs-ingestion** (incluído): lê os e-mails de alerta do LinkedIn e
+  grava as vagas (ver [`06-ingestao-linkedin-email.md`](06-ingestao-linkedin-email.md)).
+- Sugeridos: relatório semanal de carreira, follow-up de recrutadores,
+  ingestão do Obsidian.
 
 Para aprovação humana, adicione um nó **Telegram** (precisa de
 `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`).
@@ -225,10 +231,12 @@ topk(10, sum by (pod) (container_memory_working_set_bytes) / 1024 / 1024)
 
 | Função | Como usar hoje |
 |---|---|
-| Gerar post LinkedIn | ✅ API / Dashboard (automático) |
-| Mensagem p/ recrutador | ✅ API (automático) |
-| Cadastro de vagas/recrutadores/posts | ✅ API (automático) |
+| Gerar post LinkedIn | ✅ Dashboard (aba Gerar post) / API |
+| Mensagem p/ recrutador | ✅ Dashboard (aba Recrutadores) / API |
+| Cadastrar vagas / recrutadores / ver posts | ✅ Dashboard (abas) / API |
+| **Buscar vagas do LinkedIn** | ✅ Automático via e-mail (n8n) — requer setup do alerta + IMAP |
 | Job match, currículo, entrevista, estratégia | 💬 Chat (Open WebUI/Claude) + as SKILL.md |
+| Buscar recrutadores (prospecção ativa) | ⚠️ manual — scraping de LinkedIn fora por segurança/ToS |
 | Memória semântica (RAG do Obsidian) | 🚧 infra pronta, pipeline a implementar |
 
 Para transformar as funções "via chat" em endpoints automáticos da API, é só
