@@ -24,6 +24,15 @@ Cron diário (08:00)
 Extensões sugeridas: adicionar um nó **Telegram** após a geração para enviar o
 rascunho para aprovação manual (defina `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`).
 
+### linkedin-jobs-ingestion.json (incluído)
+
+```
+IMAP (e-mails de alerta do LinkedIn) → parse → POST /jobs/ingest (dedup)
+```
+
+Traz as vagas do LinkedIn por e-mail, sem scraping. Setup completo em
+[../../docs/06-ingestao-linkedin-email.md](../../docs/06-ingestao-linkedin-email.md).
+
 ### Fluxos planejados (a montar no n8n)
 
 - **weekly-career-report** — cron semanal → busca métricas/vagas/recrutadores

@@ -225,6 +225,69 @@ def generate_outreach(req: GenerateOutreachIn):
     return {"message": content}
 
 
+# --------------------------------------------------------------------------- #
+# Ingestão em lote (usada pela automação n8n — e-mails do LinkedIn etc.)
+# Idempotente: não duplica.
+# --------------------------------------------------------------------------- #
+class JobsIngestIn(BaseModel):
+    jobs: list[JobIn]
+
+
+@app.post("/jobs/ingest")
+def ingest_jobs(payload: JobsIngestIn):
+    """Insere várias vagas, pulando as que já existem (dedup por job_url)."""
+    created, skipped = 0, 0
+    with db.cursor() as cur:
+        for job in payload.jobs:
+            if job.job_url:
+                cur.execute("SELECT 1 FROM jobs WHERE job_url = %s", (job.job_url,))
+                if cur.fetchone():
+                    skipped += 1
+                    continue
+            cur.execute(
+                """INSERT INTO jobs
+                   (title, company, location, remote, salary_range, job_url,
+                    description, stack, match_score, status)
+                   VALUES (%(title)s, %(company)s, %(location)s, %(remote)s,
+                           %(salary_range)s, %(job_url)s, %(description)s,
+                           %(stack)s, %(match_score)s, %(status)s)""",
+                job.model_dump(),
+            )
+            created += 1
+    return {"created": created, "skipped": skipped}
+
+
+class RecruitersIngestIn(BaseModel):
+    recruiters: list[RecruiterIn]
+
+
+@app.post("/recruiters/ingest")
+def ingest_recruiters(payload: RecruitersIngestIn):
+    """Insere recrutadores, pulando duplicados (por linkedin_url ou nome+empresa)."""
+    created, skipped = 0, 0
+    with db.cursor() as cur:
+        for rec in payload.recruiters:
+            if rec.linkedin_url:
+                cur.execute("SELECT 1 FROM recruiters WHERE linkedin_url = %s", (rec.linkedin_url,))
+            else:
+                cur.execute(
+                    "SELECT 1 FROM recruiters WHERE name = %s AND coalesce(company,'') = %s",
+                    (rec.name, rec.company or ""),
+                )
+            if cur.fetchone():
+                skipped += 1
+                continue
+            cur.execute(
+                """INSERT INTO recruiters
+                   (name, company, role, linkedin_url, country, status, notes)
+                   VALUES (%(name)s, %(company)s, %(role)s, %(linkedin_url)s,
+                           %(country)s, %(status)s, %(notes)s)""",
+                rec.model_dump(),
+            )
+            created += 1
+    return {"created": created, "skipped": skipped}
+
+
 @app.get("/stats")
 def stats():
     """Contadores para o dashboard."""
