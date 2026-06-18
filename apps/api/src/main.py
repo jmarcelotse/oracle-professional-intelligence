@@ -183,7 +183,7 @@ def generate_post(req: GeneratePostIn):
         "3 a 5 hashtags relevantes."
     )
     try:
-        content = llm.chat(f"Tema do post: {req.topic}", system=system, max_tokens=500)
+        content = llm.chat(f"Tema do post: {req.topic}", system=system, max_tokens=900)
     except llm.LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
