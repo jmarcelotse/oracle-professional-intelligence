@@ -1,0 +1,68 @@
+# Redis (imagem oficial). Service oracle-redis-master para casar com o .env.
+# Laboratório local: sem auth, persistência via AOF em PVC.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oracle-redis-data
+  namespace: oracle-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-redis
+  namespace: oracle-data
+  labels:
+    app: oracle-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-redis
+  template:
+    metadata:
+      labels:
+        app: oracle-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: oracle-redis-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-redis-master
+  namespace: oracle-data
+spec:
+  selector:
+    app: oracle-redis
+  ports:
+    - port: 6379
+      targetPort: 6379

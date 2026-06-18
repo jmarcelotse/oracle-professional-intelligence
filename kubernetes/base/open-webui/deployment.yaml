@@ -1,0 +1,84 @@
+# Open WebUI — interface de chat para os modelos locais (Ollama).
+# Manifesto próprio enxuto (o chart Helm sobe um pod extra de pipelines).
+# WEBUI_AUTH=false: modo single-user sem login, adequado para laboratório local.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-data
+  namespace: oracle-ai
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-webui
+  namespace: oracle-ai
+  labels:
+    app: open-webui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-webui
+  template:
+    metadata:
+      labels:
+        app: open-webui
+    spec:
+      containers:
+        - name: open-webui
+          image: ghcr.io/open-webui/open-webui:main
+          ports:
+            - containerPort: 8080
+          env:
+            - name: OLLAMA_BASE_URL
+              value: http://ollama.oracle-ai.svc.cluster.local:11434
+            - name: WEBUI_AUTH
+              value: "false"
+            - name: ENABLE_OPENAI_API
+              value: "false"
+            # Usa o Ollama para embeddings (RAG) em vez de carregar um modelo
+            # sentence-transformers em processo — evita OOM em host com pouca RAM.
+            - name: RAG_EMBEDDING_ENGINE
+              value: "ollama"
+            - name: RAG_EMBEDDING_MODEL
+              value: "nomic-embed-text"
+            - name: RAG_OLLAMA_BASE_URL
+              value: http://ollama.oracle-ai.svc.cluster.local:11434
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: open-webui-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-webui
+  namespace: oracle-ai
+spec:
+  selector:
+    app: open-webui
+  ports:
+    - port: 80
+      targetPort: 8080

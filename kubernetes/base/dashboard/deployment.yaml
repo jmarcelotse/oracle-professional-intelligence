@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-dashboard
+  namespace: oracle-ai
+  labels:
+    app: oracle-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-dashboard
+  template:
+    metadata:
+      labels:
+        app: oracle-dashboard
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: oracle-dashboard
+          image: oracle-dashboard:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ORACLE_API_BASE
+              value: http://oracle-api.oracle-ai.svc.cluster.local:8000
+          ports:
+            - containerPort: 8501
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-dashboard
+  namespace: oracle-ai
+spec:
+  selector:
+    app: oracle-dashboard
+  ports:
+    - port: 8501
+      targetPort: 8501

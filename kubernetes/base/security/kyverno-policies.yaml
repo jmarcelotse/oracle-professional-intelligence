@@ -1,0 +1,91 @@
+# Política Kyverno de baseline do Oracle, em modo Audit (reporta, não bloqueia)
+# e escopada aos namespaces oracle-* — para não impactar outros projetos no
+# cluster compartilhado. Troque failureAction para Enforce quando quiser
+# bloquear de fato (cuidado: pods que não cumprem deixam de subir).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: oracle-baseline
+spec:
+  background: true
+  rules:
+    - name: disallow-privileged
+      match: &match
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - oracle-ai
+                - oracle-data
+                - oracle-automation
+                - oracle-observability
+                - oracle-mcp
+      validate:
+        failureAction: Audit
+        message: "Containers privilegiados não são permitidos."
+        pattern:
+          spec:
+            =(initContainers):
+              - =(securityContext):
+                  =(privileged): "false"
+            containers:
+              - =(securityContext):
+                  =(privileged): "false"
+
+    - name: require-requests-limits
+      match: *match
+      validate:
+        failureAction: Audit
+        message: "Defina requests (cpu/memory) e limit de memory em todos os containers."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    memory: "?*"
+                    cpu: "?*"
+                  limits:
+                    memory: "?*"
+
+    - name: require-probes
+      match: *match
+      validate:
+        failureAction: Audit
+        message: "Defina livenessProbe e readinessProbe em todos os containers."
+        pattern:
+          spec:
+            containers:
+              - livenessProbe:
+                  periodSeconds: ">0"
+                readinessProbe:
+                  periodSeconds: ">0"
+
+    - name: require-image-tag
+      match: *match
+      validate:
+        failureAction: Audit
+        message: "Uma tag de imagem explícita é obrigatória."
+        pattern:
+          spec:
+            containers:
+              - image: "*:*"
+
+    - name: disallow-latest-tag
+      match: *match
+      validate:
+        failureAction: Audit
+        message: "A tag ':latest' não é permitida; fixe uma versão."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+
+    - name: require-non-root
+      match: *match
+      validate:
+        failureAction: Audit
+        message: "Pods devem declarar runAsNonRoot: true no securityContext do pod."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true

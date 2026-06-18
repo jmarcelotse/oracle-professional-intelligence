@@ -1,0 +1,87 @@
+# LiteLLM em modo multi-LLM: Claude (nuvem) + Ollama (local) lado a lado.
+# A chave da Anthropic vem do Secret 'anthropic' (não versionado); o config
+# abaixo só referencia os modelos por alias.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: oracle-ai
+data:
+  config.yaml: |
+    model_list:
+      # --- Claude (nuvem) ---
+      - model_name: claude-sonnet
+        litellm_params:
+          model: anthropic/claude-sonnet-4-6
+          api_key: os.environ/ANTHROPIC_API_KEY
+      - model_name: claude-opus
+        litellm_params:
+          model: anthropic/claude-opus-4-8
+          api_key: os.environ/ANTHROPIC_API_KEY
+      # --- Ollama (local, fallback offline) ---
+      - model_name: qwen-local
+        litellm_params:
+          model: ollama/qwen2.5-coder:1.5b
+          api_base: http://ollama.oracle-ai.svc.cluster.local:11434
+    litellm_settings:
+      drop_params: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  namespace: oracle-ai
+  labels:
+    app: litellm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      containers:
+        - name: litellm
+          image: ghcr.io/berriai/litellm:main-latest
+          args:
+            - "--config"
+            - "/etc/litellm/config.yaml"
+            - "--port"
+            - "4000"
+          ports:
+            - containerPort: 4000
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: anthropic
+                  key: ANTHROPIC_API_KEY
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+      volumes:
+        - name: config
+          configMap:
+            name: litellm-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm
+  namespace: oracle-ai
+spec:
+  selector:
+    app: litellm
+  ports:
+    - port: 4000
+      targetPort: 4000

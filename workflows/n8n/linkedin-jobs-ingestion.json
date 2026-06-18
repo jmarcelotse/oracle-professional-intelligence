@@ -1,0 +1,82 @@
+{
+  "name": "linkedin-jobs-ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "format": "resolved",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\", [\"FROM\", \"linkedin.com\"]]"
+        }
+      },
+      "id": "c1111111-1111-1111-1111-111111111111",
+      "name": "IMAP: e-mails do LinkedIn",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "credentials": {
+        "imap": {
+          "id": "REPLACE_COM_A_CREDENCIAL_IMAP",
+          "name": "Hotmail IMAP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai vagas dos e-mails de alerta do LinkedIn.\n// Best-effort: o layout dos e-mails do LinkedIn muda; ajuste o regex se\n// necessário inspecionando um e-mail real (campo textHtml).\nconst out = [];\nfor (const item of $input.all()) {\n  const html = item.json.textHtml || item.json.html || item.json.text || '';\n  const re = /href=\"(https:\\/\\/www\\.linkedin\\.com\\/(?:comm\\/)?jobs\\/view\\/[^\"?]+)[^\"]*\"[^>]*>\\s*([^<]{3,140}?)\\s*<\\/a>/g;\n  const seen = new Set();\n  let m;\n  while ((m = re.exec(html)) !== null) {\n    const job_url = m[1];\n    const title = m[2].replace(/\\s+/g, ' ').trim();\n    if (seen.has(job_url) || !title) continue;\n    seen.add(job_url);\n    out.push({ title, job_url, status: 'new' });\n  }\n}\nreturn [{ json: { jobs: out } }];"
+      },
+      "id": "c2222222-2222-2222-2222-222222222222",
+      "name": "Parsear vagas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.jobs.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "c3333333-3333-3333-3333-333333333333",
+      "name": "Tem vagas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://oracle-api.oracle-ai.svc.cluster.local:8000/jobs/ingest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "c4444444-4444-4444-4444-444444444444",
+      "name": "POST /jobs/ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 280]
+    }
+  ],
+  "connections": {
+    "IMAP: e-mails do LinkedIn": {
+      "main": [[{ "node": "Parsear vagas", "type": "main", "index": 0 }]]
+    },
+    "Parsear vagas": {
+      "main": [[{ "node": "Tem vagas?", "type": "main", "index": 0 }]]
+    },
+    "Tem vagas?": {
+      "main": [[{ "node": "POST /jobs/ingest", "type": "main", "index": 0 }], []]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

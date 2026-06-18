@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-ai
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-data
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-mcp
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-automation
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-observability
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-security
